@@ -65,32 +65,52 @@ function swapInModel(id,group,kind){if(group.userData.hasModel)return;const asse
 prepareModelAsset('elg');
 const colors={elg:0x57402c,hjort:0xa56d43,raadyr:0xbe8856,hare:0x9e9586};
 function makeAnimal(a){
- const g=new THREE.Group(),scale={elg:1.9,hjort:1.27,raadyr:.95,hare:.42}[a.kind],coat=colors[a.kind];
- g.userData.animalId=a.id;g.userData.kind=a.kind;
- const mesh=(geo,color,x,y,z)=>{const m=new THREE.Mesh(geo,mat(color));m.position.set(x,y,z);m.castShadow=true;m.userData.animalId=a.id;g.add(m);return m};
- const ell=(sx,sy,sz,color,x,y,z)=>{const m=mesh(new THREE.SphereGeometry(1,12,8),color,x,y,z);m.scale.set(sx,sy,sz);return m};
- ell(.88*scale,.45*scale,.34*scale,coat,0,1.13*scale,0);
- ell(.38*scale,.4*scale,.30*scale,coat,.75*scale,1.39*scale,0);
- ell(.31*scale,.24*scale,.23*scale,coat,1.02*scale,1.66*scale,0);
- ell(.18*scale,.12*scale,.20*scale,0x3e2c22,1.27*scale,1.59*scale,0);
- for(const z of [-.15,.15]){ell(.08*scale,.08*scale,.05*scale,0x141512,1.20*scale,1.76*scale,z);
- const ear=ell(.09*scale,.24*scale,.085*scale,coat,.88*scale,1.99*scale,z*1.3);ear.rotation.z=-.2}
- const legs=[];for(const x of [-.56,.56])for(const z of [-.22,.22]){
- const leg=mesh(new THREE.CylinderGeometry(.085*scale,.060*scale,.83*scale,7),coat,x,.53*scale,z);
- const hoof=ell(.13*scale,.10*scale,.12*scale,0x242522,x,.11*scale,z);legs.push(leg)}
- if(a.kind==='elg'||a.kind==='hjort'){
-  for(const z of [-.16,.16]){
-  const ant=mesh(new THREE.CylinderGeometry(.026*scale,.045*scale,.65*scale,6),0xd3be93,.94*scale,2.24*scale,z);ant.rotation.z=z>0?-.18:.18;
-  if(a.kind==='elg'){const paddle=ell(.15*scale,.34*scale,.08*scale,0xc1aa84,.93*scale,2.52*scale,z*2);paddle.rotation.z=z>0?-.4:.4}
-  else for(let k=0;k<3;k++){const tine=mesh(new THREE.CylinderGeometry(.015*scale,.022*scale,.24*scale,5),0xd3be93,.92*scale,2.3*scale+k*.15*scale,z*(1.4+k*.25));tine.rotation.x=z>0?-.7:.7}
- }}
- if(a.kind==='hare'){for(const z of [-.14,.14]){const e=ell(.10*scale,.48*scale,.10*scale,0xb5a99c,.96*scale,2.10*scale,z);e.rotation.z=-.17}ell(.25*scale,.2*scale,.22*scale,0xe3d7c2,-.83*scale,1.10*scale,0)}
- g.userData.legs=legs;g.userData.seed=Math.random()*6.28;g.userData.body=g.children[0];g.userData.phase=0;g.userData.stride=.8+Math.random()*.3;
- ell(.17*scale,.12*scale,.18*scale,a.kind==='hare'?0xe6e4d5:0xe3d0aa,-.89*scale,1.23*scale,0);
- if(a.kind==='elg'){ell(.32*scale,.22*scale,.23*scale,0x3a3027,1.30*scale,1.52*scale,0);for(const z of [-.15,.15])ell(.055*scale,.045*scale,.045*scale,0x171714,1.50*scale,1.58*scale,z)}
- if(a.kind==='raadyr'){ell(.12*scale,.14*scale,.17*scale,0xf3e8d9,-.85*scale,1.17*scale,0);ell(.28*scale,.06*scale,.23*scale,0xe3cfb1,.91*scale,1.45*scale,0)}
- animalGroup.add(g);animalMeshes.set(a.id,g);swapInModel(a.id,g,a.kind);return g
+ const k=a.kind, size={elg:1.70,hjort:1.18,raadyr:.86,hare:.47}[k],fur={elg:0x453529,hjort:0x955c39,raadyr:0xa66f42,hare:0x928b80}[k];
+ const g=new THREE.Group();g.userData={animalId:a.id,kind:k,seed:Math.random()*Math.PI*2,phase:0,hasModel:false};
+ const coat=new THREE.MeshStandardMaterial({color:fur,roughness:.96}),shade=new THREE.MeshStandardMaterial({color:0x594638,roughness:1}),cream=new THREE.MeshStandardMaterial({color:k==='hare'?0xdfd5c1:0xdbc7a8,roughness:1}),dark=new THREE.MeshStandardMaterial({color:0x1b1917,roughness:.6}),horn=new THREE.MeshStandardMaterial({color:0xb59b71,roughness:1});
+ const mesh=(parent,geometry,material,x,y,z)=>{const m=new THREE.Mesh(geometry,material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;m.userData.animalId=a.id;parent.add(m);return m};
+ const egg=(parent,x,y,z,rx,ry,rz,material)=>{const o=mesh(parent,new THREE.SphereGeometry(1,16,12),material,x,y,z);o.scale.set(rx,ry,rz);return o};
+ const cylinder=(parent,x,y,z,top,bottom,len,material)=>mesh(parent,new THREE.CylinderGeometry(top,bottom,len,9),material,x,y,z);
+ const height=k==='hare'?.65:1.35,bodyY=height*size;
+ const torso=egg(g,0,bodyY,0,(k==='hare'?.72:.97)*size,(k==='hare'?.38:.50)*size,(k==='elg'?.47:.38)*size,coat);
+ egg(g,-.68*size,bodyY+.03*size,0,.38*size,.4*size,.35*size,coat);
+ const neck=new THREE.Group();neck.position.set(.55*size,bodyY+.13*size,0);g.add(neck);
+ const chest=egg(neck,.16*size,.08*size,0,.42*size,.54*size,.32*size,coat);chest.rotation.z=-.27;
+ const head=egg(neck,.59*size,.38*size,0,.43*size,.29*size,.25*size,coat);
+ egg(neck,.94*size,.28*size,0,.31*size,.18*size,.21*size,k==='elg'?shade:cream);
+ egg(neck,1.18*size,.28*size,0,.085*size,.075*size,.145*size,dark);
+ for(const sign of [-1,1]){
+  egg(neck,.75*size,.47*size,sign*.205*size,.065*size,.064*size,.028*size,dark);
+  const ear=egg(neck,.38*size,.7*size,sign*.3*size,.11*size,k==='hare'?.48*size:.25*size,.12*size,coat);
+  ear.rotation.x=sign*.35;
+  egg(neck,.4*size,.71*size,sign*.34*size,.055*size,k==='hare'?.34*size:.15*size,.03*size,cream);
+ }
+ const legs=[], lower=[];
+ for(const fore of [false,true])for(const sign of [-1,1]){
+  const x=(fore?.58:-.62)*size,z=sign*.27*size;
+  const pivot=new THREE.Group();pivot.position.set(x,bodyY-.22*size,z);g.add(pivot);
+  const boneLen=(k==='hare'?.32:.55)*size;
+  const upper=cylinder(pivot,0,-boneLen*.48,0,(fore?.105:.13)*size,.075*size,boneLen,coat);
+  const joint=new THREE.Group();joint.position.y=-boneLen*.96;pivot.add(joint);
+  cylinder(joint,0,-boneLen*.37,0,.07*size,.055*size,boneLen*.72,coat);
+  const hoof=egg(joint,.035*size,-boneLen*.75,0,.15*size,.09*size,.12*size,k==='hare'?cream:dark);
+  legs.push(pivot);lower.push(joint);
+ }
+ if(k==='elg'||k==='hjort'||k==='raadyr'){
+  for(const sign of [-1,1]){
+   if(k==='raadyr'){const ant=cylinder(neck,.39*size,.91*size,sign*.13*size,.027*size,.035*size,.36*size,horn);ant.rotation.z=-.23;continue}
+   const stem=cylinder(neck,.40*size,1.03*size,sign*.15*size,.035*size,.055*size,.6*size,horn);stem.rotation.z=-.17;
+   if(k==='elg'){const palm=egg(neck,.42*size,1.36*size,sign*.28*size,.14*size,.32*size,.09*size,horn);palm.rotation.z=.23}
+   else for(let j=0;j<4;j++){const tine=cylinder(neck,(.37-j*.08)*size,(1.04+j*.13)*size,sign*(.18+j*.05)*size,.012*size,.027*size,.24*size,horn);tine.rotation.z=.7}
+  }
+ }
+ const tail=egg(g,-1.04*size,bodyY+.08*size,0,.18*size,.18*size,.18*size,cream);
+ if(k==='hare'){egg(g,-.55*size,bodyY-.12*size,0,.37*size,.29*size,.32*size,cream);tail.scale.multiplyScalar(1.3)}
+ g.userData.legs=legs;g.userData.lower=lower;g.userData.neck=neck;g.userData.torso=torso;g.userData.tail=tail;g.userData.bodyBase=bodyY;
+ g.scale.setScalar(1);
+ animalGroup.add(g);animalMeshes.set(a.id,g);swapInModel(a.id,g,k);return g
 }
+
 let ws,myId='',room='',isHost=false,weapon='rifle',inGame=false,remaining=90,players=[],lastUpdate=0;
 function show(msg){$('toast').textContent=msg;$('toast').hidden=false;setTimeout(()=>$('toast').hidden=true,2800)}
 function send(obj){if(ws?.readyState===1)ws.send(JSON.stringify(obj));else show('Ikke tilkoblet')}
@@ -110,17 +130,20 @@ renderer.xr.addEventListener('sessionstart',()=>{renderer.setPixelRatio(Math.min
 function animateWildlife(dt){
  for(const g of animalMeshes.values()){
   if(g.userData.hasModel)continue;
-  const k=g.userData.kind,hop=k==='hare',phase=(g.userData.phase||0)+dt*(hop?10: k==='elg'?5.2:k==='hjort'?7:8);
-  g.userData.phase=phase;
-  const run=Math.sin(phase),lift=hop?Math.max(0,Math.sin(phase))*.25:Math.abs(Math.sin(phase))*.035;
-  g.position.y=(g.userData.serverY||0)+lift;
-  g.rotation.z=Math.sin(phase*.5)*.013;
-  g.rotation.x=hop?Math.sin(phase)*.08:Math.sin(phase)*.015;
-  g.userData.legs?.forEach((leg,i)=>{
-    const fore=i>=2,offset=hop?(fore?1.3:0):(i===0||i===3?0:Math.PI);
-    leg.rotation.z=Math.sin(phase+offset)*(hop?.55:.42);
+  const d=g.userData,k=d.kind,isHare=k==='hare';
+  d.phase+=dt*(isHare?9:k==='elg'?4.8:k==='hjort'?7.2:8.5);
+  const ph=d.phase;
+  const motion=isHare?Math.max(0,Math.sin(ph))*.19:Math.abs(Math.sin(ph))*.04;
+  g.position.y=(d.serverY||0)+motion;
+  g.rotation.z=Math.sin(ph*.5)*(isHare?.055:.015);
+  d.torso.rotation.z=Math.sin(ph)*(isHare?.06:.028);
+  d.neck.rotation.z=Math.sin(ph*.5)*(isHare?.075:.04);
+  d.tail.rotation.z=Math.sin(ph*1.4)*.15;
+  d.legs.forEach((leg,i)=>{
+   const fore=i>=2,side=i%2,cycle=ph+(isHare?(fore?1.4:0):(side===0?0:Math.PI))+(fore&&!isHare?Math.PI:0);
+   leg.rotation.z=Math.sin(cycle)*(isHare?.65:.42);
+   d.lower[i].rotation.z=Math.max(0,Math.sin(cycle+1.2))*(isHare?.65:.48);
   });
-  if(g.userData.body)g.userData.body.scale.y=1+Math.sin(phase*.45)*.012;
  }
 }
 renderer.setAnimationLoop(()=>{const dt=Math.min(.07,loaderClock.getDelta());animateWildlife(dt);for(const mix of modelMixers.values())mix.update(dt);const tm=performance.now()*.00018;sun.position.x=-35+Math.sin(tm)*8;renderer.render(scene,camera)});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
