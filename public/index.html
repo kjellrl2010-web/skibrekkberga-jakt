@@ -54,6 +54,9 @@ for(let i=0;i<135;i++){const x=(rnd()-.5)*160,z=(rnd()-.5)*160;const rock=new TH
 for(let i=0;i<100;i++){let x=(rnd()-.5)*125,z=(rnd()-.5)*125;const bush=new THREE.Mesh(new THREE.IcosahedronGeometry(.25+rnd()*.4,0),foliageMat[Math.floor(rnd()*4)]);bush.position.set(x,heightAt(x,z)+.2,z);terrainObjects.add(bush)}
 }
 terrain('skog');
+function noiseTexture(kind){const cv=document.createElement('canvas');cv.width=cv.height=128;const ctx=cv.getContext('2d'),img=ctx.createImageData(128,128);for(let y=0;y<128;y++)for(let x=0;x<128;x++){const i=(y*128+x)*4,n=Math.random()*.33,grain=kind==='bark'?Math.sin(x*.47+Math.sin(y*.11)*3)*.24:Math.sin(x*.13+y*.17)*.06;const b=kind==='bark'?75:73;img.data[i]=b*(.78+n+grain);img.data[i+1]=(kind==='bark'?59:102)*(.78+n+grain);img.data[i+2]=(kind==='bark'?43:57)*(.78+n+grain);img.data[i+3]=255}ctx.putImageData(img,0,0);const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;tx.wrapS=tx.wrapT=THREE.RepeatWrapping;tx.repeat.set(2,4);return tx}barkMat.map=noiseTexture('bark');barkMat.needsUpdate=true;for(const fm of pineMat){fm.map=noiseTexture('fur');fm.needsUpdate=true}
+const twigs=new THREE.InstancedMesh(new THREE.CylinderGeometry(.015,.025,.85,4),barkMat,vrDevice?110:330);
+for(let i=0;i<twigs.count;i++){const x=(Math.random()-.5)*120,z=(Math.random()-.5)*120;dummy.position.set(x,heightAt(x,z)+.3,z);dummy.rotation.set(.35+Math.random()*.8,Math.random()*6.28,0);dummy.scale.setScalar(.4+Math.random());dummy.updateMatrix();twigs.setMatrixAt(i,dummy.matrix)}twigs.instanceMatrix.needsUpdate=true;scene.add(twigs);
 const colors={elg:0x57402c,hjort:0xa56d43,raadyr:0xbe8856,hare:0x9e9586};
 function makeAnimal(a){
  const g=new THREE.Group(),scale={elg:1.9,hjort:1.27,raadyr:.95,hare:.42}[a.kind],coat=colors[a.kind];
@@ -77,6 +80,9 @@ function makeAnimal(a){
  }}
  if(a.kind==='hare'){for(const z of [-.14,.14]){const e=ell(.10*scale,.48*scale,.10*scale,0xb5a99c,.96*scale,2.10*scale,z);e.rotation.z=-.17}ell(.25*scale,.2*scale,.22*scale,0xe3d7c2,-.83*scale,1.10*scale,0)}
  g.userData.legs=legs;g.userData.seed=Math.random()*6.28;
+ ell(.17*scale,.12*scale,.18*scale,a.kind==='hare'?0xe6e4d5:0xe3d0aa,-.89*scale,1.23*scale,0);
+ if(a.kind==='elg'){ell(.32*scale,.22*scale,.23*scale,0x3a3027,1.30*scale,1.52*scale,0);for(const z of [-.15,.15])ell(.055*scale,.045*scale,.045*scale,0x171714,1.50*scale,1.58*scale,z)}
+ if(a.kind==='raadyr'){ell(.12*scale,.14*scale,.17*scale,0xf3e8d9,-.85*scale,1.17*scale,0);ell(.28*scale,.06*scale,.23*scale,0xe3cfb1,.91*scale,1.45*scale,0)}
  animalGroup.add(g);animalMeshes.set(a.id,g);return g
 }
 let ws,myId='',room='',isHost=false,weapon='rifle',inGame=false,remaining=90,players=[],lastUpdate=0;
@@ -95,5 +101,5 @@ function part(w,h,d,x,y,z,mt){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d
 part(.07,.09,.65,0,0,-.32,dark);part(.11,.15,.32,0,-.05,.07,wood);part(.10,.045,.40,0,.065,-.12,dark);part(.09,.19,.14,0,-.14,.10,wood);group.position.set(0,-.09,-.1);return group}
 ctl2.add(makeRifle());
 renderer.xr.addEventListener('sessionstart',()=>{renderer.setPixelRatio(Math.min(devicePixelRatio,1.15));$('cross').style.display='none';$('panel').style.display='none';show('Sittende VR aktiv – sikt med kontrolleren og skyt med avtrekker')});renderer.xr.addEventListener('sessionend',()=>{renderer.setPixelRatio(Math.min(devicePixelRatio,vrDevice?1.25:1.8));$('cross').style.display='block';if(!inGame)$('panel').style.display='block'});
-renderer.setAnimationLoop(()=>renderer.render(scene,camera));window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+renderer.setAnimationLoop(()=>{const tm=performance.now()*.00018;sun.position.x=-35+Math.sin(tm)*8;renderer.render(scene,camera)});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 </script></body></html>
