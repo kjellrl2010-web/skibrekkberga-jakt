@@ -1,0 +1,21 @@
+'use strict';
+const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto'),WebSocket=require('ws');
+const PORT=process.env.PORT||3000,base=path.join(__dirname,'public'),rooms=new Map();
+const httpServer=http.createServer((req,res)=>{const pathname=new URL(req.url,'http://localhost').pathname;const file=path.resolve(base,'.'+(pathname==='/'?'/index.html':pathname));if(!file.startsWith(base+path.sep)||!fs.existsSync(file))return res.writeHead(404).end('Not found');res.setHeader('Content-Type',file.endsWith('.html')?'text/html; charset=utf-8':'text/plain');fs.createReadStream(file).pipe(res)});
+const wss=new WebSocket.Server({server:httpServer,maxPayload:8192});
+function send(w,d){if(w?.readyState===1)w.send(JSON.stringify(d))}
+function broadcast(r,d){r.players.forEach(p=>send(p.ws,d))}
+function members(r){return r.players.map(p=>({id:p.id,name:p.name,score:p.score,weapon:p.weapon}))}
+function lobby(r){broadcast(r,{type:'lobby',code:r.code,host:r.players[0]?.id,players:members(r),settings:r.settings,status:r.status})}
+function remove(w){const r=w.room;if(!r)return;r.players=r.players.filter(p=>p.ws!==w);w.room=null;if(!r.players.length)rooms.delete(r.code);else lobby(r)}
+function join(w,r,name){if(r.status==='playing')return send(w,{type:'error',message:'Jakten er i gang'});if(r.players.length>=4)return send(w,{type:'error',message:'Jaktlaget er fullt'});remove(w);const p={ws:w,id:crypto.randomUUID(),name:String(name||'Jeger').slice(0,24),score:0,weapon:'rifle'};r.players.push(p);w.room=r;send(w,{type:'joined',id:p.id,code:r.code});lobby(r)}
+function spawn(r){const kind=['elg','hjort','raadyr','hare','raadyr','hare'][Math.floor(Math.random()*6)],side=Math.random()<.5?-1:1,depth=16+Math.random()*32;r.animals.set(String(++r.counter),{id:String(r.counter),kind,x:side*(depth*.7+13),depth,dir:-side,speed:{elg:1.5,hjort:2,raadyr:2.6,hare:3.3}[kind]})}
+function state(r){broadcast(r,{type:'state',remaining:Math.max(0,(r.end-Date.now())/1000),animals:[...r.animals.values()],players:members(r),status:r.status})}
+wss.on('connection',w=>{w.on('message',raw=>{let m;try{m=JSON.parse(raw)}catch{return}const r=w.room,p=r?.players.find(x=>x.ws===w);if(m.type==='create'){let code;do{code=crypto.randomBytes(3).toString('hex').toUpperCase()}while(rooms.has(code));const room={code,players:[],status:'lobby',settings:{terrain:'skog',duration:90,mode:'konkurranse'},animals:new Map(),counter:0};rooms.set(code,room);join(w,room,m.name);return}if(m.type==='join')return rooms.has(String(m.code||'').toUpperCase())?join(w,rooms.get(String(m.code).toUpperCase()),m.name):send(w,{type:'error',message:'Ukjent romkode'});if(!p)return;
+if(m.type==='settings'&&r.players[0]===p&&r.status!=='playing'){if(['skog','myr','aas'].includes(m.terrain))r.settings.terrain=m.terrain;if([60,90,120].includes(+m.duration))r.settings.duration=+m.duration;if(['konkurranse','samarbeid'].includes(m.mode))r.settings.mode=m.mode;lobby(r)}
+if(m.type==='weapon'&&['rifle','hagle'].includes(m.weapon)){p.weapon=m.weapon;lobby(r)}
+if(m.type==='start'&&r.players[0]===p&&r.status!=='playing'){if(r.players.length<2)return send(w,{type:'error',message:'Inviter minst en spiller til'});r.status='playing';r.animals.clear();r.counter=0;r.players.forEach(x=>x.score=0);r.end=Date.now()+r.settings.duration*1000;r.nextSpawn=Date.now()+1500;for(let i=0;i<5;i++)spawn(r);broadcast(r,{type:'started',settings:r.settings});state(r)}
+if(m.type==='shot'&&r.status==='playing'){const a=r.animals.get(String(m.animalId));if(!a||p.weapon==='hagle'&&a.depth>40)return send(w,{type:'miss'});r.animals.delete(a.id);const points={elg:100,hjort:75,raadyr:50,hare:25}[a.kind];p.score+=points;broadcast(r,{type:'hit',animalId:a.id,by:p.id,name:p.name,kind:a.kind,points,players:members(r)})}
+});w.on('close',()=>remove(w));w.on('error',()=>{})});
+setInterval(()=>{for(const r of rooms.values()){if(r.status!=='playing')continue;if(Date.now()>=r.end){r.status='ended';broadcast(r,{type:'finished',players:members(r)});continue}if(Date.now()>r.nextSpawn&&r.animals.size<11){spawn(r);r.nextSpawn=Date.now()+1700}for(const a of r.animals.values()){a.x+=a.dir*a.speed*.1;if(Math.abs(a.x)>80)r.animals.delete(a.id)}state(r)}},100);
+httpServer.listen(PORT,'0.0.0.0',()=>console.log('Jaktserver '+PORT));
