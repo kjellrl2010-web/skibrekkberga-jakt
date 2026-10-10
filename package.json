@@ -1,0 +1,14 @@
+{
+  "name": "skibrekkberga-jakt",
+  "version": "1.2.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
